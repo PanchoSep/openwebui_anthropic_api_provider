@@ -1,0 +1,10 @@
+{
+  "name": "Claude Code Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code",
+  "forwardPorts": [],
+  "remoteEnv": {
+    "ANTHROPIC_AUTH_TOKEN": "${localEnv:ANTHROPIC_AUTH_TOKEN}",
+    "ANTHROPIC_BASE_URL": "${localEnv:ANTHROPIC_BASE_URL}"
+  }
+}

@@ -3423,6 +3423,9 @@ class Pipe:
                     stream_event_counts = {}  # Track event types for diagnostics
                     # Apply cache breakpoints right before sending to API
                     self._apply_cache_control(payload_for_stream, is_tool_loop=(tool_loop_iteration > 1))
+                    # DEBUG: log exact payload keys and values being sent
+                    logger.warning(f"[VOIDAI DEBUG] use_beta={use_beta} | payload keys={list(payload_for_stream.keys())} | model={payload_for_stream.get('model')} | max_tokens={payload_for_stream.get('max_tokens')} | messages_count={len(payload_for_stream.get('messages', []))}")
+                    logger.warning(f"[VOIDAI DEBUG] headers={dict(client.default_headers)}")
                     # Use beta endpoint for Anthropic directly; standard endpoint for third-party providers
                     _stream_ctx = client.beta.messages.stream(**payload_for_stream) if use_beta else client.messages.stream(**payload_for_stream)
                     async with _stream_ctx as stream:

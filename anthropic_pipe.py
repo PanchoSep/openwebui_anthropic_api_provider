@@ -3235,8 +3235,19 @@ class Pipe:
                 logger.debug("Using user-provided API key from UserValves")
             request_timeout = self.valves.REQUEST_TIMEOUT
             base_url = self.valves.ANTHROPIC_BASE_URL.strip() or None
+            # Use standard messages API when a custom base_url is set (third-party providers
+            # like VoidAI implement the standard Anthropic Messages API but not the beta endpoint)
+            use_beta = base_url is None
+            # Third-party providers don't understand Anthropic-specific headers;
+            # strip anthropic-version and anthropic-beta to avoid request rejection
+            if not use_beta:
+                headers.pop("anthropic-version", None)
+                headers.pop("anthropic-beta", None)
             client = AsyncAnthropic(api_key=api_key, default_headers=headers, timeout=request_timeout, **({"base_url": base_url} if base_url else {}))
-            payload_for_stream = {k: v for k, v in payload.items() if k != "stream"}
+            # When using a third-party provider (base_url set), strip beta-only fields that
+            # standard-compatible APIs don't understand (e.g. "betas", "container")
+            _excluded_keys = {"stream"} if use_beta else {"stream", "betas", "container"}
+            payload_for_stream = {k: v for k, v in payload.items() if k not in _excluded_keys}
             include_usage = body.get("stream_options", {}).get("include_usage", False)
             if include_usage:
                 total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
@@ -3412,9 +3423,9 @@ class Pipe:
                     stream_event_counts = {}  # Track event types for diagnostics
                     # Apply cache breakpoints right before sending to API
                     self._apply_cache_control(payload_for_stream, is_tool_loop=(tool_loop_iteration > 1))
-                    async with client.beta.messages.stream(
-                        **payload_for_stream
-                    ) as stream:
+                    # Use beta endpoint for Anthropic directly; standard endpoint for third-party providers
+                    _stream_ctx = client.beta.messages.stream(**payload_for_stream) if use_beta else client.messages.stream(**payload_for_stream)
+                    async with _stream_ctx as stream:
                         async for event in stream:
                             event_type = getattr(event, "type", None)
                             stream_event_counts[event_type] = stream_event_counts.get(event_type, 0) + 1
